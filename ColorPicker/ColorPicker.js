@@ -175,6 +175,7 @@ const ColorPickerBase = kind({
 	},
 
 	computed: {
+		children: ({children}) => children || [],
 		className: ({extended, styler}) => styler.append({extended}),
 		sliderValues: ({value}) => {
 			return {hsl: convert.hex.hsl(value)};
@@ -198,7 +199,7 @@ const ColorPickerBase = kind({
 		delete rest.extended;
 		return (
 			<div {...rest}>
-				<SwatchButton onClick={onClick}>{value}</SwatchButton>
+				<SwatchButton color={value} onClick={onClick} />
 				<Transition
 					className={transitionContainerClassname}
 					visible={open}
@@ -206,11 +207,14 @@ const ColorPickerBase = kind({
 				>
 					<ContainerDiv className={css.palette} spotlightDisabled={!open} spotlightRestrict="self-only">
 						<Group
-							className={css.group}
 							childComponent={SwatchButton}
+							childProp="color"
+							className={css.group}
 							itemProps={{size: 'small', className: css.swatch}}
 							onSelect={onChange}
-						>{children || []}</Group>
+						>
+							{children}
+						</Group>
 						<Button icon="ellipsis" size="small" onTap={onToggleExtended} className={css.swatch} />
 						<div className={css.sliders}>
 							<Row align="center">
