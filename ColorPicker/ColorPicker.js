@@ -10,22 +10,22 @@
  * @exports ColorPickerDecorator
  */
 
-import kind from '@enact/core/kind';
-import hoc from '@enact/core/hoc';
-import {on, off} from '@enact/core/dispatcher';
-import {forward, handle} from '@enact/core/handle';
-import Group from '@enact/ui/Group';
-import Toggleable from '@enact/ui/Toggleable';
-import {Row, Cell} from '@enact/ui/Layout';
-import Transition from '@enact/ui/Transition';
-import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
-
-import PropTypes from 'prop-types';
+import convert from 'color-convert';
 import compose from 'ramda/src/compose';
+import hoc from '@enact/core/hoc';
+import kind from '@enact/core/kind';
+import {adaptEvent, forward, handle} from '@enact/core/handle';
+import {on, off} from '@enact/core/dispatcher';
+import {Row, Cell} from '@enact/ui/Layout';
+import Changeable from '@enact/ui/Changeable';
+import Group from '@enact/ui/Group';
+import PropTypes from 'prop-types';
 import Pure from '@enact/ui/internal/Pure';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import convert from 'color-convert';
+import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
+import Toggleable from '@enact/ui/Toggleable';
+import Transition from '@enact/ui/Transition';
 
 import $L from '../internal/$L';
 import Skinnable from '../Skinnable';
@@ -166,14 +166,6 @@ const ColorPickerBase = kind({
 		publicClassNames: ['colorPicker', 'palette']
 	},
 
-	handlers: {
-		onChange: (ev, {onChange}) => {
-			if (onChange) {
-				onChange({value: ev.data});
-			}
-		}
-	},
-
 	computed: {
 		children: ({children}) => children || [],
 		className: ({extended, styler}) => styler.append({extended}),
@@ -250,6 +242,18 @@ const ColorPickerBase = kind({
 	}
 });
 
+// This handler is meant to accommodate using `ColorPicker`'s `onChange` prop from `Changeable`
+// as the `onSelect` handler for its `Group` component that lists the set of pre-defined color
+// choices.  `onSelect` sends the chosen value in the `data` prop of its event but `Changeable`
+// expects `value`.  The slider handlers for hue, saturation, and light values in `ColorPickerExtended`
+// use this handler to update the `value` prop via `onChange` as well.
+const colorChangeHandler = handle(
+	adaptEvent(
+		({data: value}) => ({value}),
+		forward('onChange')
+	)
+);
+
 const ColorPickerExtended = hoc((config, Wrapped) => {
 	return class extends React.Component {
 		static displayName = 'ColorPickerExtended'
@@ -267,6 +271,8 @@ const ColorPickerExtended = hoc((config, Wrapped) => {
 			this.state = {
 				extended: props.defaultExtended || false
 			};
+
+			colorChangeHandler.bindAs(this, 'onChange');
 		}
 
 		componentDidMount () {
@@ -322,11 +328,7 @@ const ColorPickerExtended = hoc((config, Wrapped) => {
 		handleSlider = (type) => ({value: sliderValue}) => {
 			this.hsl[('hsl'.indexOf(type))] = sliderValue;
 			const value = this.buildValue();
-			// this.setState({value});
-
-			if (this.props.onChange) {
-				this.props.onChange({value});
-			}
+			this.onChange({data: value});
 		}
 
 		render () {
@@ -337,6 +339,7 @@ const ColorPickerExtended = hoc((config, Wrapped) => {
 				<Wrapped
 					{...rest}
 					extended={this.state.extended}
+					onChange={this.onChange}
 					onToggleExtended={this.handleToggleExtended}
 					onHueChanged={this.handleSlider('h')}
 					onSaturationChanged={this.handleSlider('s')}
@@ -358,6 +361,7 @@ const ColorPickerExtended = hoc((config, Wrapped) => {
  */
 const ColorPickerDecorator = compose(
 	Pure,
+	Changeable,
 	Toggleable({toggle: null, prop: 'open', toggleProp: 'onClick'}),
 	ColorPickerExtended,
 	Skinnable
